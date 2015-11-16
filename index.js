@@ -44,6 +44,9 @@ function loadNavmesh() {
     });
 }
 
+var scene;
+var camera;
+
 window.onload = async function() {
     const renderer = new three.WebGLRenderer({antialias: true});
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -51,7 +54,7 @@ window.onload = async function() {
 
     recast.setGLContext(renderer.context);
 
-    const scene = new three.Scene();
+    scene = new three.Scene();
     const [ object ] = await Promise.all([load(), loadNavmesh()]);
     scene.add(object);
 
@@ -62,7 +65,7 @@ window.onload = async function() {
     directionalLight.position.set(0, 1, 0);
     scene.add(directionalLight);
     
-    const camera = new three.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera = new three.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
     camera.position.z = 50;
     camera.position.y = 20;
     camera.lookAt(new three.Vector3(0, 0, 0));
@@ -74,7 +77,7 @@ window.onload = async function() {
     
     recast.initCrowd(1000, 1.0);
 
-    const agent = recast.addAgent({
+    const agentId = recast.addAgent({
                       position: {
                           x: -25.8850,
                           y: -1.64166,
@@ -88,6 +91,27 @@ window.onload = async function() {
                       separationWeight: 20.0
                   });
 
+    var agentGeometry = new THREE.CylinderGeometry(0.2, 0.5, 2);
+
+    var agent = new THREE.Object3D();
+    var agentBody = new THREE.Mesh(
+        agentGeometry,
+        new THREE.MeshBasicMaterial({
+          color: '#FF0000'
+        })
+    );
+    
+    agentBody.position.y = 1;
+    agent.add(agentBody);
+    
+    agent.position.x = -25.8850;
+    agent.position.y = -1.64166;
+    agent.position.z = -5.41350;
+    
+    scene.add(agent);
+    
+    document.addEventListener('mouseup', onMouseUp);
+    
     var delta, oldTime, newTime = 0;
     
     (function loop() {
@@ -107,6 +131,25 @@ window.onload = async function() {
     })();
 };
 
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+
+function onMouseUp(e) {
+    e.preventDefault();
+	e.stopPropagation();
+	
+	mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+	mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+	
+	camera.updateMatrixWorld();
+	
+	raycaster.setFromCamera(mouse, camera);
+	
+	const intersection = raycaster.intersectObject(scene, true)[0];
+	
+	console.log(intersection);
+};
+				
 /**
  * Load an .OBJ file
  */
