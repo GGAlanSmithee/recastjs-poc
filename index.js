@@ -46,17 +46,35 @@ function loadNavmesh() {
 
 var scene;
 var camera;
+var agentId;
 
 window.onload = async function() {
     const renderer = new three.WebGLRenderer({antialias: true});
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
+    
+    const agentRadius = 0.5;
+    const agentHeight = 4.0;
+    const cellSize = agentRadius / 2;
+    const cellHeight = cellSize / 2;
+    const agentMaxClimb = Math.ceil(agentHeight/2);
+    
+    recast.settings({
+        cellSize: cellSize,
+        cellHeight: cellHeight,
+        agentHeight: agentHeight,
+        agentRadius: agentRadius,
+        agentMaxClimb: agentMaxClimb,
+        agentMaxSlope: 30.0
+    });
 
     recast.setGLContext(renderer.context);
 
     scene = new three.Scene();
     const [ object ] = await Promise.all([load(), loadNavmesh()]);
     scene.add(object);
+
+    recast.initCrowd(1000, 1.0);
 
     const light = new three.AmbientLight(0x404040);
     scene.add(light);
@@ -66,32 +84,29 @@ window.onload = async function() {
     scene.add(directionalLight);
     
     camera = new three.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.z = 50;
-    camera.position.y = 20;
+    camera.position.y = 50;
     camera.lookAt(new three.Vector3(0, 0, 0));
 
     const controls = new three.OrbitControls(camera, renderer.domElement);
     controls.addEventListener('change', function(){
         renderer.render(scene, camera);
     });
-    
-    recast.initCrowd(1000, 1.0);
 
-    const agentId = recast.addAgent({
-                      position: {
-                          x: -25.8850,
-                          y: -1.64166,
-                          z: -5.41350
-                      },
-                      radius: 1.0,
-                      height: 1.0,
-                      maxAcceleration: 1.0,
-                      maxSpeed: 2.0,
-                      updateFlags: 0, // && recast.CROWD_OBSTACLE_AVOIDANCE, // & recast.CROWD_ANTICIPATE_TURNS & recast.CROWD_OPTIMIZE_TOPO & recast.CROWD_SEPARATION,
-                      separationWeight: 20.0
-                  });
+    agentId = recast.addAgent({
+                  position: {
+                      x: -25.8850,
+                      y: -1.64166,
+                      z: -5.41350
+                  },
+                  radius: agentRadius,
+                  height: agentHeight,
+                  maxAcceleration: 0.5,
+                  maxSpeed: 1.0,
+                  updateFlags: 0, // && recast.CROWD_OBSTACLE_AVOIDANCE, // & recast.CROWD_ANTICIPATE_TURNS & recast.CROWD_OPTIMIZE_TOPO & recast.CROWD_SEPARATION,
+                  separationWeight: 20.0
+              });
 
-    var agentGeometry = new THREE.CylinderGeometry(0.2, 0.5, 2);
+    var agentGeometry = new THREE.CylinderGeometry(agentRadius, agentRadius, agentHeight, 16);
 
     var agent = new THREE.Object3D();
     var agentBody = new THREE.Mesh(
@@ -110,6 +125,23 @@ window.onload = async function() {
     
     scene.add(agent);
     
+    recast.vent.on('update', function (agents) {
+        for (var i = 0; i < agents.length; i++) {
+            var a = agents[i];
+
+            var angle = Math.atan2(- a.velocity.z, a.velocity.x);
+            if (Math.abs(agent.rotation.y - angle) > 0) {
+                agent.rotation.y = angle;
+            }
+            
+            agent.position.set(
+                a.position.x, 
+                a.position.y, 
+                a.position.z
+            );
+        }
+    });
+    
     document.addEventListener('mouseup', onMouseUp);
     
     var delta, oldTime, newTime = 0;
@@ -127,7 +159,9 @@ window.onload = async function() {
     	oldTime = newTime;
     	
     	renderer.render(scene, camera);
-    	recast.crowdUpdate(delta / 1000);
+    	
+    	recast.crowdUpdate(delta / 100);
+    	recast.crowdGetActiveAgents();
     })();
 };
 
@@ -147,7 +181,13 @@ function onMouseUp(e) {
 	
 	const intersection = raycaster.intersectObject(scene, true)[0];
 	
-	console.log(intersection);
+	if (intersection === undefined) {
+	    return;
+	}
+	
+	const point = intersection.point;
+	
+	recast.crowdRequestMoveTarget(agentId, point.x, point.y, point.z);
 };
 				
 /**
