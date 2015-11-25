@@ -4,7 +4,7 @@
   "description": "poc of using recastjs for navigation",
   "main": "index.js",
   "scripts": {
-    "build": "browserify index.js -e recastjs -d -t [ babelify --sourceMaps=inline --presets [ es2015 ] --plugins [ syntax-async-functions transform-async-to-generator ] ] -o browser.index.js",
+    "build": "node build/bundle",
     "test": "test"
   },
   "repository": {
@@ -31,12 +31,8 @@
     "babel-plugin-syntax-async-functions": "^6.0.14",
     "babel-plugin-transform-async-to-generator": "^6.0.14",
     "babel-polyfill": "^6.1.19",
-    "babel-preset-es2015": "^6.1.2",
     "babel-preset-es2015-rollup": "^1.0.0",
-    "babelify": "^7.2.0",
-    "browserify": "^12.0.1",
     "rollup": "^0.21.0",
-    "rollup-plugin-babel": "^2.1.0",
-    "webpack": "^1.12.6"
+    "rollup-plugin-babel": "^2.1.0"
   }
 }
