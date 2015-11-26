@@ -46,7 +46,8 @@ function loadNavmesh() {
 
 var scene;
 var camera;
-var agentId;
+var MaxAgents = 50;
+var agentBodies = new Map();
 
 window.onload = async function() {
     const renderer = new three.WebGLRenderer({antialias: true});
@@ -92,53 +93,45 @@ window.onload = async function() {
         renderer.render(scene, camera);
     });
 
-    agentId = recast.addAgent({
-                  position: {
-                      x: -25.8850,
-                      y: -1.64166,
-                      z: -5.41350
-                  },
-                  radius: agentRadius,
-                  height: agentHeight,
-                  maxAcceleration: 0.5,
-                  maxSpeed: 1.0,
-                  updateFlags: 0, // && recast.CROWD_OBSTACLE_AVOIDANCE, // & recast.CROWD_ANTICIPATE_TURNS & recast.CROWD_OPTIMIZE_TOPO & recast.CROWD_SEPARATION,
-                  separationWeight: 20.0
-              });
-
-    var agentGeometry = new THREE.CylinderGeometry(agentRadius, agentRadius, agentHeight, 16);
-
-    var agent = new THREE.Object3D();
-    var agentBody = new THREE.Mesh(
-        agentGeometry,
-        new THREE.MeshBasicMaterial({
-          color: '#FF0000'
-        })
-    );
+    for (let i = 0; i < MaxAgents; ++i) {
+        var agentId = recast.addAgent({
+                      position: {
+                          x: -25,
+                          y: -1,
+                          z: -5
+                      },
+                      radius: agentRadius,
+                      height: agentHeight,
+                      maxAcceleration: 0.5,
+                      maxSpeed: 1.0,
+                      updateFlags: 0,// recast.CROWD_OBSTACLE_AVOIDANCE & recast.CROWD_ANTICIPATE_TURNS & recast.CROWD_OPTIMIZE_TOPO & recast.CROWD_SEPARATION,
+                      separationWeight: 20.0
+                  });
     
-    agentBody.position.y = 1;
-    agent.add(agentBody);
-    
-    agent.position.x = -25.8850;
-    agent.position.y = -1.64166;
-    agent.position.z = -5.41350;
-    
-    scene.add(agent);
+        let agentGeometry = new THREE.CylinderGeometry(agentRadius, agentRadius, agentHeight, 16);
+        let agentBody = new THREE.Mesh(agentGeometry, new THREE.MeshBasicMaterial({ color: '#FF0000' }));
+        agentBody.position.y = 1;
+        
+        let agent = new THREE.Object3D();
+        agent.add(agentBody);
+        
+        agentBodies.set(agentId, agent);
+        scene.add(agent);
+    }
     
     recast.vent.on('update', function (agents) {
         for (var i = 0; i < agents.length; i++) {
             var a = agents[i];
 
-            var angle = Math.atan2(- a.velocity.z, a.velocity.x);
+            let agent = agentBodies.get(a.idx);
+            
+            let angle = Math.atan2(- a.velocity.z, a.velocity.x);
+            
             if (Math.abs(agent.rotation.y - angle) > 0) {
                 agent.rotation.y = angle;
             }
             
-            agent.position.set(
-                a.position.x, 
-                a.position.y, 
-                a.position.z
-            );
+            agent.position.set(a.position.x, a.position.y, a.position.z);
         }
     });
     
@@ -187,7 +180,9 @@ function onMouseUp(e) {
 	
 	const point = intersection.point;
 	
-	recast.crowdRequestMoveTarget(agentId, point.x, point.y, point.z);
+	for (let agentId of agentBodies.keys()) {
+	    recast.crowdRequestMoveTarget(agentId, point.x, point.y, point.z);
+	}
 };
 				
 /**

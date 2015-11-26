@@ -19,4 +19,6 @@ rollup.rollup({
     moduleId: 'Test',
     moduleName: 'Test'
   });
+}).catch(function(error) {
+  console.warn(error);
 });
